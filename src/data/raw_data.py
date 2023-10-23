@@ -145,7 +145,6 @@ def load_wiki(raw_data_dir: Path) -> DatasetDict:
 
 
 def save_laion(dst_path: Path) -> DatasetDict:
-    # 665344876
     partition = load_dataset('laion/laion2B-multi', streaming=True)
     dataset = partition['train']
     with bz2.open(dst_path, 'wb') as f:
@@ -156,13 +155,34 @@ def save_laion(dst_path: Path) -> DatasetDict:
     return partition
 
 
+def load_laion() -> DatasetDict:
+    partition = load_dataset('laion/laion2B-multi')
+
+    def filter_lang(x: dict, lang: str) -> bool:
+        return x['LANGUAGE'] == lang
+
+    return DatasetDict({p: partition[p].filter(filter_lang) for p in partition})
+
+
+def save_partition(partition: DatasetDict, dst_dir: Path):
+    for split in partition:
+        dataset = partition[split]
+        with bz2.open(dst_dir / split / '.json.bz2', 'wb') as f:
+            for sample in tqdm(dataset):
+                f.write(json.dumps(sample).encode())
+                f.write(b'\n')
+
+
 def main():
     raw_data_dir = Path('data/raw')
     # partition = load_ted_talks(raw_data_dir)
     # partition = load_mc4()
     # partition = load_supreme_court()
     # partition = load_oscar_2301()
-    save_laion(Path('laion-multi-iw.jsonl.bz2'))
+    laion = load_laion()
+    laion_dst_dir = raw_data_dir / 'laion-iw'
+    laion_dst_dir.mkdir(parents=True, exist_ok=True)
+    save_partition(laion, laion_dst_dir)
     # partition = load_hebrew_text_corpus(raw_data_dir)
     # partition = load_old_newspapers(raw_data_dir)
     # partition = load_heb_songs_lyrics(raw_data_dir)
